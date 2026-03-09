@@ -1,0 +1,37 @@
+name: Stable Windows-RDP Only
+
+on:
+  workflow_dispatch:        # Manual trigger
+  schedule:
+    - cron: '0 */5 * * *'  # Auto-restart every 5 hours
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Start Message
+      run: echo "Starting Windows RDP setup..."
+
+    - name: Start RDP Service safely
+      shell: powershell
+      run: |
+        try {
+            Set-Service -Name TermService -StartupType Automatic
+            Start-Service -Name TermService
+            Write-Host "RDP service started successfully."
+        } catch {
+            Write-Host "RDP service already running or cannot start. Continuing..."
+        }
+
+    - name: Keep Session Alive
+      shell: powershell
+      run: |
+        try {
+            while ($true) {
+                Write-Host "RDP session alive..."
+                Start-Sleep -Seconds 60
+            }
+        } catch {
+            Write-Host "Loop interrupted, workflow ending gracefully..."
+        }
