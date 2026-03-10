@@ -1,0 +1,52 @@
+name: Windows-RDP-Free-TCP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+
+    steps:
+
+    - name: Start Message
+      run: echo "Starting Windows RDP setup..."
+
+    - name: Enable RDP Service
+      shell: powershell
+      run: |
+        Set-Service -Name TermService -StartupType Automatic
+        Start-Service -Name TermService
+        Write-Host "RDP Service Started Successfully"
+
+    - name: Install Chocolatey
+      shell: powershell
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = 3072
+        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+    - name: Install Cloudflared
+      shell: powershell
+      run: choco install cloudflared -y
+
+    - name: Start Cloudflared TCP Tunnel for RDP
+      shell: powershell
+      run: |
+        # Start TCP tunnel to RDP port 3389
+        Start-Process cloudflared -ArgumentList "tunnel --url tcp://localhost:3389 --no-autoupdate --loglevel info" -WindowStyle Hidden
+        Start-Sleep -Seconds 15
+        # Grab the public TCP URL from Cloudflared logs
+        $log = Get-Content "$env:USERPROFILE\.cloudflared\cloudflared.log" -Tail 20
+        $tcpLine = $log | Where-Object {$_ -match "Serving tunnel from"}
+        Write-Host "`n===== RDP CONNECTION DETAILS =====`n"
+        Write-Host $tcpLine
+        Write-Host "Username: runneradmin"
+        Write-Host "Password: (see workflow logs above for system password)"
+        Write-Host "`n================================`n"
+
+    - name: Keep Session Alive
+      shell: powershell
+      run: |
+        Write-Host "RDP session will stay alive for 6 hours"
+        Start-Sleep -Seconds 21600
